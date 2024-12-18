@@ -21,18 +21,32 @@ def login(username, password):
         print(f"การล็อคอินล้มเหลวสำหรับ {username}")
         return None
 
-# ฟังก์ชันสำหรับดึงข้อมูลสินค้า
-def get_service_data(user, service):
-    platform_services = user['products'].get(service, [])
-    if platform_services:
-        print(f"กำลังดึงข้อมูลบริการสำหรับ {service}...")
-        # แสดงข้อมูลของบริการที่เกี่ยวข้อง
-        for service_id in platform_services:
-            print(f"Service ID: {service_id}")
-            # คุณสามารถเพิ่มการดึงข้อมูลจาก API ตามที่ต้องการ
-            print(f"ข้อมูลบริการสำหรับ Service ID {service_id}...")
+# ฟังก์ชันสำหรับดึงข้อมูลบริการจาก API
+def get_service_data(user, platform):
+    api_key = user['Api_key']  # ใช้ api_key ของผู้ใช้
+    params = {
+        'key': api_key,
+        'action': 'services'  # การกระทำคือดึงข้อมูลบริการ
+    }
+    # ส่งคำขอ POST ไปยัง API เพื่อดึงข้อมูลบริการ
+    response = requests.post(f'{API_URL}/service', params=params)
+    
+    if response.status_code == 200:
+        service_data = response.json()
+        print(f"กำลังดึงข้อมูลบริการสำหรับ {platform}...")
+        # แสดงข้อมูลบริการที่ได้จาก API
+        for item in service_data:
+            print(f"ชื่อบริการ: {item['name']}")
+            print(f"ประเภท: {item['type']}")
+            print(f"หมวดหมู่: {item['category']}")
+            print(f"อัตรา: {item['rate']}")
+            print(f"ขั้นต่ำ: {item['min']}")
+            print(f"สูงสุด: {item['max']}")
+            print(f"สามารถเติมเงินได้: {item['refill']}")
+            print(f"สามารถยกเลิกได้: {item['cancel']}")
+            print("-" * 50)
     else:
-        print(f"ไม่พบบริการสำหรับ {service}")
+        print(f"ไม่สามารถดึงข้อมูลบริการสำหรับ {platform} จาก API: {response.status_code}")
 
 # ฟังก์ชันหลักสำหรับเมนู
 def main():
@@ -85,8 +99,8 @@ def show_service_data(user, platform):
     for service in services:
         print(f"\nService ID: {service}")
         
-        # แสดงข้อมูลบริการ
-        print(f"ข้อมูลบริการสำหรับ Service ID {service}...")
+        # ดึงข้อมูลบริการจาก API
+        get_service_data(user, platform)
 
 if __name__ == '__main__':
     main()
