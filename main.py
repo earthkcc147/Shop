@@ -36,7 +36,7 @@ def get_service_data(user, platform):
         print(f"กำลังดึงข้อมูลบริการสำหรับ {platform}...")
         # แสดงข้อมูลบริการที่ได้จาก API
         for item in service_data:
-            print(f"ชื่อบริการ: {item['name']}")
+            print(f"Service ID: {item['id']}, ชื่อบริการ: {item['name']}")
             print(f"ประเภท: {item['type']}")
             print(f"หมวดหมู่: {item['category']}")
             print(f"อัตรา: {item['rate']}")
@@ -47,6 +47,26 @@ def get_service_data(user, platform):
             print("-" * 50)
     else:
         print(f"ไม่สามารถดึงข้อมูลบริการสำหรับ {platform} จาก API: {response.status_code}")
+
+# ฟังก์ชันสำหรับการสั่งซื้อสินค้า
+def place_order(user, service_id, link, quantity):
+    api_key = user['Api_key']
+    params = {
+        'key': api_key,
+        'action': 'add',  # การกระทำคือเพิ่มคำสั่งซื้อ
+        'service': service_id,
+        'link': link,
+        'quantity': quantity
+    }
+    
+    # ส่งคำขอ POST เพื่อเพิ่มคำสั่งซื้อ
+    response = requests.post(f'{API_URL}/order', params=params)
+    
+    if response.status_code == 200:
+        order_data = response.json()
+        print(f"คำสั่งซื้อสำเร็จ! หมายเลขคำสั่งซื้อ: {order_data['order']}")
+    else:
+        print(f"ไม่สามารถเพิ่มคำสั่งซื้อได้: {response.status_code}")
 
 # ฟังก์ชันหลักสำหรับเมนู
 def main():
@@ -91,7 +111,7 @@ def show_platform_menu(user):
         print("ข้อมูลไม่ถูกต้อง กรุณากรอกหมายเลข.")
         show_platform_menu(user)
 
-# ฟังก์ชันสำหรับแสดงข้อมูลบริการของแพลตฟอร์ม
+# ฟังก์ชันสำหรับแสดงข้อมูลบริการของแพลตฟอร์มและให้ผู้ใช้เลือกคำสั่งซื้อ
 def show_service_data(user, platform):
     services = user['products'].get(platform, [])
     print(f"กำลังดึงข้อมูลบริการสำหรับ {platform}...")
@@ -101,6 +121,13 @@ def show_service_data(user, platform):
         
         # ดึงข้อมูลบริการจาก API
         get_service_data(user, platform)
+        
+        # ให้ผู้ใช้เลือกคำสั่งซื้อ
+        link = input("กรุณากรอกลิงก์สำหรับคำสั่งซื้อ: ")
+        quantity = int(input("กรุณากรอกจำนวนที่ต้องการสั่งซื้อ: "))
+        
+        # ทำการสั่งซื้อ
+        place_order(user, service, link, quantity)
 
 if __name__ == '__main__':
     main()
