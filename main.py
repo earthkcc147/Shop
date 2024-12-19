@@ -38,15 +38,16 @@ def add_order(user, service_id):
         'quantity': quantity
     }
     
-    response = requests.post(f'{API_URL}/order', params=params)
-    if response.status_code == 200:
+    try:
+        response = requests.post(f'{API_URL}/order', params=params)
         response_data = response.json()
-        if 'order' in response_data:
+        
+        if response.status_code == 200 and 'order' in response_data:
             print(f"คำสั่งซื้อสำเร็จ! หมายเลขคำสั่งซื้อ: {response_data['order']}")
         else:
-            print(f"เกิดข้อผิดพลาด: {response_data}")
-    else:
-        print(f"ไม่สามารถสั่งซื้อได้: {response.status_code}")
+            print(f"เกิดข้อผิดพลาด: {response_data.get('error', 'ไม่ทราบข้อผิดพลาด')}")
+    except requests.exceptions.RequestException as e:
+        print(f"ไม่สามารถสั่งซื้อได้: {e}")
 
 # ฟังก์ชันสำหรับแสดงข้อมูลบริการ
 def show_service_data(user, platform):
