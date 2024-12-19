@@ -20,34 +20,36 @@ def login(username, password):
         print("การล็อคอินล้มเหลว กรุณาตรวจสอบชื่อผู้ใช้และรหัสผ่าน.")
         return None
 
-# ฟังก์ชันสำหรับเพิ่มคำสั่งซื้อ
+# ฟังก์ชันสำหรับเพิ่มคำสั่งซื้อ (Add order)
 def add_order(user, service_id):
-    api_key = user['Api_key']
-    link = input("กรุณากรอกลิงก์สำหรับการสั่งซื้อ: ")
+    api_key = user['Api_key']  # ใช้ API Key จากผู้ใช้
+    link = input("กรุณากรอกลิงก์สำหรับการสั่งซื้อ: ")  # รับข้อมูลลิงก์จากผู้ใช้
     try:
-        quantity = int(input("กรุณากรอกจำนวนที่ต้องการ: "))
+        quantity = int(input("กรุณากรอกจำนวนที่ต้องการ: "))  # รับจำนวนจากผู้ใช้
     except ValueError:
         print("จำนวนไม่ถูกต้อง กรุณากรอกตัวเลข.")
         return
 
+    # ตั้งค่าพารามิเตอร์สำหรับการสั่งซื้อ
     params = {
-        'key': api_key,
-        'action': 'add',
-        'service': service_id,
-        'link': link,
-        'quantity': quantity
+        'key': api_key,  # API Key ของผู้ใช้
+        'action': 'add',  # การกระทำคือ 'add'
+        'service': service_id,  # ID ของบริการที่เลือก
+        'link': link,  # ลิงก์ที่ผู้ใช้กรอก
+        'quantity': quantity  # จำนวนที่ผู้ใช้ต้องการ
     }
     
-    try:
-        response = requests.post(f'{API_URL}/order', params=params)
+    # ส่งคำขอไปยัง API
+    response = requests.post(f'{API_URL}/order', params=params)
+    
+    if response.status_code == 200:
         response_data = response.json()
-        
-        if response.status_code == 200 and 'order' in response_data:
+        if 'order' in response_data:  # ถ้ามีคำสั่งซื้อในข้อมูลที่ตอบกลับ
             print(f"คำสั่งซื้อสำเร็จ! หมายเลขคำสั่งซื้อ: {response_data['order']}")
         else:
-            print(f"เกิดข้อผิดพลาด: {response_data.get('error', 'ไม่ทราบข้อผิดพลาด')}")
-    except requests.exceptions.RequestException as e:
-        print(f"ไม่สามารถสั่งซื้อได้: {e}")
+            print(f"เกิดข้อผิดพลาด: {response_data}")  # หากไม่พบคำสั่งซื้อ
+    else:
+        print(f"ไม่สามารถสั่งซื้อได้: {response.status_code}")  # หากไม่สามารถเชื่อมต่อกับ API
 
 # ฟังก์ชันสำหรับแสดงข้อมูลบริการ
 def show_service_data(user, platform):
@@ -61,7 +63,7 @@ def show_service_data(user, platform):
         if 1 <= choice <= len(services):
             service_id = services[choice - 1]
             print(f"\nคุณเลือก Service ID: {service_id}")
-            add_order(user, service_id)
+            add_order(user, service_id)  # เรียกฟังก์ชันเพิ่มคำสั่งซื้อ
         else:
             print("ตัวเลือกไม่ถูกต้อง กรุณาลองใหม่.")
             show_service_data(user, platform)
