@@ -7,8 +7,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # อ่านข้อมูลจาก .env
-API_URL = os.getenv('API_URL')
-USERS = json.loads(os.getenv('USERS'))  # แปลงค่า USERS เป็น list ของ dictionary
+API_URL = os.getenv('API_URL')  # อ่าน API URL
+USERS = json.loads(os.getenv('USERS'))  # อ่าน USERS จาก .env และแปลงเป็น list
 
 # ฟังก์ชันสำหรับล็อคอิน
 def login(username, password):
@@ -17,32 +17,42 @@ def login(username, password):
         print(f"ล็อคอินสำเร็จสำหรับ {username}")
         return user
     else:
-        print("การล็อคอินล้มเหลว.")
+        print(f"การล็อคอินล้มเหลวสำหรับ {username}")
         return None
 
-# ฟังก์ชันสำหรับดึงรายการบริการจาก API
-def get_service_list(api_key):
+# ฟังก์ชันสำหรับดึงข้อมูลสินค้าจาก API
+def get_service_data(user):
+    api_key = user['Api_key']  # ใช้ API Key ของผู้ใช้
     params = {
         'key': api_key,
-        'action': 'service'
+        'action': 'services'
     }
-    response = requests.post(API_URL, data=params)
+    
+    # ส่งคำขอ POST ไปยัง API
+    response = requests.post(f'{API_URL}/service', data=params)
+    
     if response.status_code == 200:
-        services = response.json()
-        print("\nรายการบริการที่พร้อมใช้งาน:")
-        for idx, service in enumerate(services, 1):
-            print(f"{idx}. {service['name']} (ID: {service['service']})")
-            print(f"   ประเภท: {service['type']}, หมวดหมู่: {service['category']}")
-            print(f"   อัตรา: {service['rate']}, ขั้นต่ำ: {service['min']}, สูงสุด: {service['max']}")
-            print(f"   เติมเงินได้: {'ใช่' if service['refill'] else 'ไม่ใช่'}, ยกเลิกได้: {'ใช่' if service['cancel'] else 'ไม่ใช่'}")
+        service_data = response.json()
+        print("ข้อมูลสินค้า:")
+        for item in service_data:
+            print(f"Service ID: {item['service']}")
+            print(f"ชื่อสินค้า: {item['name']}")
+            print(f"ประเภท: {item['type']}")
+            print(f"หมวดหมู่: {item['category']}")
+            print(f"อัตรา: {item['rate']} บาท")
+            print(f"ขั้นต่ำ: {item['min']}")
+            print(f"สูงสุด: {item['max']}")
+            print(f"เติมเงินได้: {'ใช่' if item['refill'] else 'ไม่ใช่'}")
+            print(f"ยกเลิกได้: {'ใช่' if item['cancel'] else 'ไม่ใช่'}")
             print("-" * 50)
-        return services
+        return service_data
     else:
-        print("ไม่สามารถดึงข้อมูลบริการได้.")
-        return []
+        print(f"ไม่สามารถดึงข้อมูลสินค้าได้: {response.status_code}")
+        return None
 
 # ฟังก์ชันสำหรับสั่งซื้อสินค้า
-def place_order(api_key, service_id, link, quantity):
+def place_order(user, service_id, link, quantity):
+    api_key = user['Api_key']
     params = {
         'key': api_key,
         'action': 'add',
@@ -50,40 +60,47 @@ def place_order(api_key, service_id, link, quantity):
         'link': link,
         'quantity': quantity
     }
-    response = requests.post(API_URL, data=params)
+    
+    response = requests.post(f'{API_URL}/order', data=params)
+    
     if response.status_code == 200:
         order_data = response.json()
         print(f"คำสั่งซื้อสำเร็จ! หมายเลขคำสั่งซื้อ: {order_data['order']}")
     else:
-        print(f"การสั่งซื้อล้มเหลว: {response.text}")
+        print(f"ไม่สามารถเพิ่มคำสั่งซื้อได้: {response.status_code}")
 
 # ฟังก์ชันหลัก
 def main():
-    print("ระบบจัดการคำสั่งซื้อ")
+    print("ระบบจัดการบริการ")
     username = input("ชื่อผู้ใช้: ")
     password = input("รหัสผ่าน: ")
+    
     user = login(username, password)
     if user:
-        services = get_service_list(user['Api_key'])
+        print("\nดึงข้อมูลสินค้า...")
+        services = get_service_data(user)
+        
         if services:
+            # เลือกสินค้า
             try:
-                choice = int(input("เลือกบริการที่ต้องการ (ระบุหมายเลข): "))
-                if 1 <= choice <= len(services):
-                    selected_service = services[choice - 1]
-                    link = input("กรอกลิงก์สำหรับคำสั่งซื้อ: ")
-                    quantity = int(input(f"กรอกจำนวน (ขั้นต่ำ {selected_service['min']} สูงสุด {selected_service['max']}): "))
+                service_id = int(input("กรุณาเลือก Service ID: "))
+                selected_service = next((s for s in services if s['service'] == service_id), None)
+                
+                if selected_service:
+                    link = input("กรุณากรอกลิงก์สำหรับคำสั่งซื้อ: ")
+                    quantity = int(input("กรุณากรอกจำนวนที่ต้องการสั่งซื้อ: "))
+                    
+                    # ตรวจสอบจำนวนที่เลือกอยู่ในช่วงขั้นต่ำและสูงสุด
                     if selected_service['min'] <= quantity <= selected_service['max']:
-                        place_order(user['Api_key'], selected_service['service'], link, quantity)
+                        place_order(user, service_id, link, quantity)
                     else:
-                        print("จำนวนไม่อยู่ในช่วงที่กำหนด.")
+                        print(f"จำนวนต้องอยู่ระหว่าง {selected_service['min']} และ {selected_service['max']}")
                 else:
-                    print("ตัวเลือกไม่ถูกต้อง.")
+                    print("Service ID ไม่ถูกต้อง")
             except ValueError:
-                print("กรุณากรอกหมายเลขที่ถูกต้อง.")
-        else:
-            print("ไม่มีบริการที่พร้อมใช้งาน.")
+                print("กรุณากรอก Service ID ที่ถูกต้อง")
     else:
-        print("การเข้าสู่ระบบล้มเหลว.")
+        print("ไม่สามารถล็อคอินได้")
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
