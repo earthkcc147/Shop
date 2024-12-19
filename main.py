@@ -20,56 +20,26 @@ def login(username, password):
         print("การล็อคอินล้มเหลว กรุณาตรวจสอบชื่อผู้ใช้และรหัสผ่าน.")
         return None
 
-# ฟังก์ชันสำหรับเพิ่มคำสั่งซื้อ
-def add_order(user, service_id):
-    api_key = user['Api_key']
-    link = input("กรุณากรอกลิงก์สำหรับการสั่งซื้อ: ")
-    try:
-        quantity = int(input("กรุณากรอกจำนวนที่ต้องการ: "))
-    except ValueError:
-        print("จำนวนไม่ถูกต้อง กรุณากรอกตัวเลข.")
-        return
-
-    # การส่งคำขอ POST ไปยัง API
-    params = {
-        'key': api_key,
-        'action': 'add',
-        'service': service_id,
-        'link': link,
-        'quantity': quantity
-    }
-    
-    # ส่งคำขอ POST ไปยัง API_URL
-    try:
-        response = requests.post(f'{API_URL}', data=params)
-        response.raise_for_status()  # ตรวจสอบว่าไม่มีข้อผิดพลาด HTTP
-        
-        # การตรวจสอบการตอบกลับ
-        response_data = response.json()
-        if 'order' in response_data:
-            print(f"คำสั่งซื้อสำเร็จ! หมายเลขคำสั่งซื้อ: {response_data['order']}")
-        else:
-            print(f"เกิดข้อผิดพลาดในการสร้างคำสั่งซื้อ: {response_data}")
-    except requests.exceptions.RequestException as e:
-        print(f"ไม่สามารถเชื่อมต่อกับ API ได้: {e}")
-    except ValueError:
-        print("ตอบกลับจาก API ไม่ถูกต้อง.")
-
 # ฟังก์ชันสำหรับดึงข้อมูลบริการจาก API
-def get_services(user):
-    api_key = user['Api_key']
+def get_services(api_key):
     params = {
         'key': api_key,
         'action': 'services'
     }
     
     try:
-        response = requests.post(f'{API_URL}', data=params)
-        response.raise_for_status()
-        services = response.json()
-        return services
+        response = requests.post(f'{API_URL}/v2', data=params)
+        response.raise_for_status()  # ตรวจสอบว่าไม่มีข้อผิดพลาด HTTP
+        response_data = response.json()
+        
+        # ตรวจสอบการตอบกลับจาก API
+        if isinstance(response_data, list):
+            return response_data
+        else:
+            print("ข้อมูลบริการไม่ถูกต้องหรือไม่ได้รับข้อมูลที่คาดหวังจาก API")
+            return []
     except requests.exceptions.RequestException as e:
-        print(f"ไม่สามารถดึงข้อมูลบริการได้: {e}")
+        print(f"ไม่สามารถเชื่อมต่อกับ API ได้: {e}")
         return []
 
 # ฟังก์ชันสำหรับแสดงข้อมูลบริการ
@@ -84,7 +54,21 @@ def show_service_data(user, platform):
         if 1 <= choice <= len(services):
             service_id = services[choice - 1]
             print(f"\nคุณเลือก Service ID: {service_id}")
-            show_service_details(user, service_id)  # แสดงรายละเอียดของบริการที่เลือก
+            # แสดงข้อมูลรายละเอียดของบริการที่เลือก
+            service_details = get_services(user['Api_key'])
+            service_detail = next((service for service in service_details if service['service'] == service_id), None)
+            if service_detail:
+                print(f"\nรายละเอียดบริการที่เลือก:")
+                print(f"ชื่อบริการ: {service_detail['name']}")
+                print(f"ประเภท: {service_detail['type']}")
+                print(f"หมวดหมู่: {service_detail['category']}")
+                print(f"อัตรา: {service_detail['rate']}")
+                print(f"ขั้นต่ำ: {service_detail['min']}")
+                print(f"สูงสุด: {service_detail['max']}")
+                print(f"สามารถรีฟิล: {'ใช่' if service_detail['refill'] else 'ไม่ใช่'}")
+                print(f"สามารถยกเลิก: {'ใช่' if service_detail['cancel'] else 'ไม่ใช่'}")
+            else:
+                print("ไม่พบข้อมูลบริการที่เลือก.")
             add_order(user, service_id)
         else:
             print("ตัวเลือกไม่ถูกต้อง กรุณาลองใหม่.")
@@ -92,24 +76,6 @@ def show_service_data(user, platform):
     except ValueError:
         print("ข้อมูลไม่ถูกต้อง กรุณากรอกหมายเลข.")
         show_service_data(user, platform)
-
-# ฟังก์ชันสำหรับแสดงรายละเอียดของบริการ
-def show_service_details(user, service_id):
-    services = get_services(user)  # ดึงข้อมูลบริการจาก API
-    service = next((s for s in services if s['service'] == service_id), None)
-    
-    if service:
-        print(f"\nรายละเอียดของบริการ {service_id}:")
-        print(f"ชื่อบริการ: {service['name']}")
-        print(f"ประเภท: {service['type']}")
-        print(f"หมวดหมู่: {service['category']}")
-        print(f"อัตรา: {service['rate']}")
-        print(f"ขั้นต่ำ: {service['min']}")
-        print(f"สูงสุด: {service['max']}")
-        print(f"เติมใหม่ได้: {'ใช่' if service['refill'] else 'ไม่ใช่'}")
-        print(f"ยกเลิกได้: {'ใช่' if service['cancel'] else 'ไม่ใช่'}")
-    else:
-        print(f"ไม่พบข้อมูลบริการที่มี Service ID: {service_id}")
 
 # ฟังก์ชันสำหรับแสดงเมนูแพลตฟอร์ม
 def show_platform_menu(user):
