@@ -20,36 +20,40 @@ def login(username, password):
         print("การล็อคอินล้มเหลว กรุณาตรวจสอบชื่อผู้ใช้และรหัสผ่าน.")
         return None
 
-# ฟังก์ชันสำหรับเพิ่มคำสั่งซื้อ (Add order)
+# ฟังก์ชันสำหรับเพิ่มคำสั่งซื้อ
 def add_order(user, service_id):
-    api_key = user['Api_key']  # ใช้ API Key จากผู้ใช้
-    link = input("กรุณากรอกลิงก์สำหรับการสั่งซื้อ: ")  # รับข้อมูลลิงก์จากผู้ใช้
+    api_key = user['Api_key']
+    link = input("กรุณากรอกลิงก์สำหรับการสั่งซื้อ: ")
     try:
-        quantity = int(input("กรุณากรอกจำนวนที่ต้องการ: "))  # รับจำนวนจากผู้ใช้
+        quantity = int(input("กรุณากรอกจำนวนที่ต้องการ: "))
     except ValueError:
         print("จำนวนไม่ถูกต้อง กรุณากรอกตัวเลข.")
         return
 
-    # ตั้งค่าพารามิเตอร์สำหรับการสั่งซื้อ
+    # การส่งคำขอ POST ไปยัง API
     params = {
-        'key': api_key,  # API Key ของผู้ใช้
-        'action': 'add',  # การกระทำคือ 'add'
-        'service': service_id,  # ID ของบริการที่เลือก
-        'link': link,  # ลิงก์ที่ผู้ใช้กรอก
-        'quantity': quantity  # จำนวนที่ผู้ใช้ต้องการ
+        'key': api_key,
+        'action': 'add',
+        'service': service_id,
+        'link': link,
+        'quantity': quantity
     }
     
-    # ส่งคำขอไปยัง API
-    response = requests.post(f'{API_URL}/order', params=params)
-    
-    if response.status_code == 200:
+    # ส่งคำขอ POST ไปยัง API_URL
+    try:
+        response = requests.post(f'{API_URL}', data=params)
+        response.raise_for_status()  # ตรวจสอบว่าไม่มีข้อผิดพลาด HTTP
+        
+        # การตรวจสอบการตอบกลับ
         response_data = response.json()
-        if 'order' in response_data:  # ถ้ามีคำสั่งซื้อในข้อมูลที่ตอบกลับ
+        if 'order' in response_data:
             print(f"คำสั่งซื้อสำเร็จ! หมายเลขคำสั่งซื้อ: {response_data['order']}")
         else:
-            print(f"เกิดข้อผิดพลาด: {response_data}")  # หากไม่พบคำสั่งซื้อ
-    else:
-        print(f"ไม่สามารถสั่งซื้อได้: {response.status_code}")  # หากไม่สามารถเชื่อมต่อกับ API
+            print(f"เกิดข้อผิดพลาดในการสร้างคำสั่งซื้อ: {response_data}")
+    except requests.exceptions.RequestException as e:
+        print(f"ไม่สามารถเชื่อมต่อกับ API ได้: {e}")
+    except ValueError:
+        print("ตอบกลับจาก API ไม่ถูกต้อง.")
 
 # ฟังก์ชันสำหรับแสดงข้อมูลบริการ
 def show_service_data(user, platform):
@@ -63,7 +67,7 @@ def show_service_data(user, platform):
         if 1 <= choice <= len(services):
             service_id = services[choice - 1]
             print(f"\nคุณเลือก Service ID: {service_id}")
-            add_order(user, service_id)  # เรียกฟังก์ชันเพิ่มคำสั่งซื้อ
+            add_order(user, service_id)
         else:
             print("ตัวเลือกไม่ถูกต้อง กรุณาลองใหม่.")
             show_service_data(user, platform)
