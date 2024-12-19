@@ -7,8 +7,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # อ่านข้อมูลจาก .env
-API_URL = os.getenv('API_URL')  # อ่าน API URL
-USERS = json.loads(os.getenv('USERS'))  # อ่าน USERS จาก .env และแปลงเป็น list
+API_URL = os.getenv('API_URL')
+USERS = json.loads(os.getenv('USERS'))  # แปลงค่า USERS เป็น list ของ dictionary
 
 # ฟังก์ชันสำหรับล็อคอิน
 def login(username, password):
@@ -17,42 +17,19 @@ def login(username, password):
         print(f"ล็อคอินสำเร็จสำหรับ {username}")
         return user
     else:
-        print(f"การล็อคอินล้มเหลวสำหรับ {username}")
+        print("การล็อคอินล้มเหลว กรุณาตรวจสอบชื่อผู้ใช้และรหัสผ่าน.")
         return None
 
-# ฟังก์ชันสำหรับดึงข้อมูลสินค้าจาก API
-def get_service_data(user):
-    api_key = user['Api_key']  # ใช้ API Key ของผู้ใช้
-    params = {
-        'key': api_key,
-        'action': 'services'
-    }
-    
-    # ส่งคำขอ POST ไปยัง API
-    response = requests.post(f'{API_URL}/service', data=params)
-    
-    if response.status_code == 200:
-        service_data = response.json()
-        print("ข้อมูลสินค้า:")
-        for item in service_data:
-            print(f"Service ID: {item['service']}")
-            print(f"ชื่อสินค้า: {item['name']}")
-            print(f"ประเภท: {item['type']}")
-            print(f"หมวดหมู่: {item['category']}")
-            print(f"อัตรา: {item['rate']} บาท")
-            print(f"ขั้นต่ำ: {item['min']}")
-            print(f"สูงสุด: {item['max']}")
-            print(f"เติมเงินได้: {'ใช่' if item['refill'] else 'ไม่ใช่'}")
-            print(f"ยกเลิกได้: {'ใช่' if item['cancel'] else 'ไม่ใช่'}")
-            print("-" * 50)
-        return service_data
-    else:
-        print(f"ไม่สามารถดึงข้อมูลสินค้าได้: {response.status_code}")
-        return None
-
-# ฟังก์ชันสำหรับสั่งซื้อสินค้า
-def place_order(user, service_id, link, quantity):
+# ฟังก์ชันสำหรับเพิ่มคำสั่งซื้อ
+def add_order(user, service_id):
     api_key = user['Api_key']
+    link = input("กรุณากรอกลิงก์สำหรับการสั่งซื้อ: ")
+    try:
+        quantity = int(input("กรุณากรอกจำนวนที่ต้องการ: "))
+    except ValueError:
+        print("จำนวนไม่ถูกต้อง กรุณากรอกตัวเลข.")
+        return
+
     params = {
         'key': api_key,
         'action': 'add',
@@ -61,46 +38,67 @@ def place_order(user, service_id, link, quantity):
         'quantity': quantity
     }
     
-    response = requests.post(f'{API_URL}/order', data=params)
-    
+    response = requests.post(f'{API_URL}/order', params=params)
     if response.status_code == 200:
-        order_data = response.json()
-        print(f"คำสั่งซื้อสำเร็จ! หมายเลขคำสั่งซื้อ: {order_data['order']}")
+        response_data = response.json()
+        if 'order' in response_data:
+            print(f"คำสั่งซื้อสำเร็จ! หมายเลขคำสั่งซื้อ: {response_data['order']}")
+        else:
+            print(f"เกิดข้อผิดพลาด: {response_data}")
     else:
-        print(f"ไม่สามารถเพิ่มคำสั่งซื้อได้: {response.status_code}")
+        print(f"ไม่สามารถสั่งซื้อได้: {response.status_code}")
+
+# ฟังก์ชันสำหรับแสดงข้อมูลบริการ
+def show_service_data(user, platform):
+    services = user['products'].get(platform, [])
+    print(f"\nข้อมูลบริการสำหรับ {platform}:")
+    for idx, service_id in enumerate(services, 1):
+        print(f"{idx}. Service ID: {service_id}")
+    
+    try:
+        choice = int(input(f"\nกรุณากรอกหมายเลข Service (1-{len(services)}): "))
+        if 1 <= choice <= len(services):
+            service_id = services[choice - 1]
+            print(f"\nคุณเลือก Service ID: {service_id}")
+            add_order(user, service_id)
+        else:
+            print("ตัวเลือกไม่ถูกต้อง กรุณาลองใหม่.")
+            show_service_data(user, platform)
+    except ValueError:
+        print("ข้อมูลไม่ถูกต้อง กรุณากรอกหมายเลข.")
+        show_service_data(user, platform)
+
+# ฟังก์ชันสำหรับแสดงเมนูแพลตฟอร์ม
+def show_platform_menu(user):
+    print("\nกรุณาเลือกแพลตฟอร์มที่ต้องการจัดการบริการ:")
+    platforms = user['products'].keys()
+    for idx, platform in enumerate(platforms, 1):
+        print(f"{idx}. {platform}")
+    
+    try:
+        choice = int(input(f"\nกรุณากรอกหมายเลข (1-{len(platforms)}): "))
+        if 1 <= choice <= len(platforms):
+            platform = list(platforms)[choice - 1]
+            print(f"\nคุณเลือกแพลตฟอร์ม {platform}.\n")
+            show_service_data(user, platform)
+        else:
+            print("ตัวเลือกไม่ถูกต้อง กรุณาลองใหม่.")
+            show_platform_menu(user)
+    except ValueError:
+        print("ข้อมูลไม่ถูกต้อง กรุณากรอกหมายเลข.")
+        show_platform_menu(user)
 
 # ฟังก์ชันหลัก
 def main():
-    print("ระบบจัดการบริการ")
-    username = input("ชื่อผู้ใช้: ")
-    password = input("รหัสผ่าน: ")
+    print("ยินดีต้อนรับสู่ระบบจัดการบริการ!")
+    print("กรุณาล็อคอินเพื่อดำเนินการต่อ")
+    
+    username = input("กรุณากรอกชื่อผู้ใช้: ")
+    password = input("กรุณากรอกรหัสผ่าน: ")
     
     user = login(username, password)
     if user:
-        print("\nดึงข้อมูลสินค้า...")
-        services = get_service_data(user)
-        
-        if services:
-            # เลือกสินค้า
-            try:
-                service_id = int(input("กรุณาเลือก Service ID: "))
-                selected_service = next((s for s in services if s['service'] == service_id), None)
-                
-                if selected_service:
-                    link = input("กรุณากรอกลิงก์สำหรับคำสั่งซื้อ: ")
-                    quantity = int(input("กรุณากรอกจำนวนที่ต้องการสั่งซื้อ: "))
-                    
-                    # ตรวจสอบจำนวนที่เลือกอยู่ในช่วงขั้นต่ำและสูงสุด
-                    if selected_service['min'] <= quantity <= selected_service['max']:
-                        place_order(user, service_id, link, quantity)
-                    else:
-                        print(f"จำนวนต้องอยู่ระหว่าง {selected_service['min']} และ {selected_service['max']}")
-                else:
-                    print("Service ID ไม่ถูกต้อง")
-            except ValueError:
-                print("กรุณากรอก Service ID ที่ถูกต้อง")
-    else:
-        print("ไม่สามารถล็อคอินได้")
+        show_platform_menu(user)
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()
