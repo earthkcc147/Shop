@@ -55,6 +55,23 @@ def add_order(user, service_id):
     except ValueError:
         print("ตอบกลับจาก API ไม่ถูกต้อง.")
 
+# ฟังก์ชันสำหรับดึงข้อมูลบริการจาก API
+def get_services(user):
+    api_key = user['Api_key']
+    params = {
+        'key': api_key,
+        'action': 'services'
+    }
+    
+    try:
+        response = requests.post(f'{API_URL}', data=params)
+        response.raise_for_status()
+        services = response.json()
+        return services
+    except requests.exceptions.RequestException as e:
+        print(f"ไม่สามารถดึงข้อมูลบริการได้: {e}")
+        return []
+
 # ฟังก์ชันสำหรับแสดงข้อมูลบริการ
 def show_service_data(user, platform):
     services = user['products'].get(platform, [])
@@ -67,6 +84,7 @@ def show_service_data(user, platform):
         if 1 <= choice <= len(services):
             service_id = services[choice - 1]
             print(f"\nคุณเลือก Service ID: {service_id}")
+            show_service_details(user, service_id)  # แสดงรายละเอียดของบริการที่เลือก
             add_order(user, service_id)
         else:
             print("ตัวเลือกไม่ถูกต้อง กรุณาลองใหม่.")
@@ -74,6 +92,24 @@ def show_service_data(user, platform):
     except ValueError:
         print("ข้อมูลไม่ถูกต้อง กรุณากรอกหมายเลข.")
         show_service_data(user, platform)
+
+# ฟังก์ชันสำหรับแสดงรายละเอียดของบริการ
+def show_service_details(user, service_id):
+    services = get_services(user)  # ดึงข้อมูลบริการจาก API
+    service = next((s for s in services if s['service'] == service_id), None)
+    
+    if service:
+        print(f"\nรายละเอียดของบริการ {service_id}:")
+        print(f"ชื่อบริการ: {service['name']}")
+        print(f"ประเภท: {service['type']}")
+        print(f"หมวดหมู่: {service['category']}")
+        print(f"อัตรา: {service['rate']}")
+        print(f"ขั้นต่ำ: {service['min']}")
+        print(f"สูงสุด: {service['max']}")
+        print(f"เติมใหม่ได้: {'ใช่' if service['refill'] else 'ไม่ใช่'}")
+        print(f"ยกเลิกได้: {'ใช่' if service['cancel'] else 'ไม่ใช่'}")
+    else:
+        print(f"ไม่พบข้อมูลบริการที่มี Service ID: {service_id}")
 
 # ฟังก์ชันสำหรับแสดงเมนูแพลตฟอร์ม
 def show_platform_menu(user):
